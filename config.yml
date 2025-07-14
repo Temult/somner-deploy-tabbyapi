@@ -10,7 +10,10 @@
 # Key parameters include `host`, `port`, `model_dir`, and `model_name`.
 #
 
-# Options for networking
+# ------------------------------------------------------------------------------
+# SECTION: Network
+# PURPOSE: Configures the server's host, port, and API-level network settings.
+# ------------------------------------------------------------------------------
 network:
   host: 0.0.0.0
   port: 5000
@@ -19,32 +22,69 @@ network:
   send_tracebacks: false
   api_servers: ["OAI"]
 
-# Options for logging
+# ------------------------------------------------------------------------------
+# SECTION: Logging
+# PURPOSE: Controls the verbosity of server logging. Useful for privacy and
+#          performance tuning.
+# ------------------------------------------------------------------------------
 logging:
   log_prompt: false
   log_generation_params: false
   log_requests: false
 
-# Options for model overrides and loading
+# ------------------------------------------------------------------------------
+# SECTION: Model
+# PURPOSE: Defines the primary model to be loaded and its runtime parameters.
+#          This is the most critical section for performance and memory tuning.
+# ------------------------------------------------------------------------------
 model:
-  # ARCHITECTURAL NOTE: This directory points to `/workspace/model`.
-  # On RunPod, `/workspace` is the persistent volume. This is the correct
-  # location for large model files, separating them from the container's
-  # application code (which lives in /opt).
-  model_dir: /workspace/model
+  # PARAMETER: model_dir
+  # The base directory where model folders are stored. The server will look
+  # for the `model_name` directory inside this path.
+  # RATIONALE (RunPod): This is set to `/workspace/models` to utilize the
+  # persistent volume, separating large model files from the container image.
+  model_dir: /workspace/models
 
-  # --- Explicitly set max_seq_len ---
-  max_seq_len: 16384
+  # PARAMETER: model_name
+  # The name of the specific model folder to load, located within `model_dir`.
+  model_name: Doctor-Shotgun_L3.3-70B-Magnum-Diamond-EXL3
 
-  # --- Keep RoPE settings commented out/blank to use model's config.json ---
+  # PARAMETER: max_seq_len
+  # The maximum sequence length (context window) the model will support.
+  # NOTE: Higher values consume significantly more VRAM, especially for the KV cache.
+  # Ensure this value is compatible with the chosen model's architecture.
+  max_seq_len: 32768
+
+  # PARAMETER: rope_scale / rope_alpha
+  # These parameters adjust RoPE scaling for models that require it to reach
+  # a longer context window than they were trained for.
+  # NOTE: Leave commented out to use the model's default values from its config.json.
   # rope_scale:
   # rope_alpha:
 
-  # --- Other settings ---
+  # PARAMETER: use_dummy_models
+  # If true, the server will start without loading a real model into VRAM.
+  # Useful for testing the API server itself without requiring a GPU.
   use_dummy_models: false
-  cache_mode: FP16
+  
+  # PARAMETER: cache_mode
+  # Determines the data type used for the KV (attention) cache.
+  # OPTIONS: "FP16" (full precision), "Q4" (4-bit quantized).
+  # RATIONALE: Using "Q4" dramatically reduces the VRAM required for the
+  # context window (by ~75% compared to FP16), making large context
+  # sizes on VRAM-constrained GPUs feasible. This is the key setting
+  # that enables a 32k context on a 48GB card for a 70B model.
+  cache_mode: Q4
+
+  # PARAMETER: chunk_size
+  # The size of chunks for processing prompts. Can be lowered to reduce VRAM
+  # usage during prompt ingestion at a slight cost to performance.
   chunk_size: 2048
-  # cache_size: Let it default to max_seq_len
+  
+  # PARAMETER: cache_size
+  # The size of the KV cache in tokens.
+  # NOTE: By default (commented out), this will be set to `max_seq_len`.
+  # cache_size:
 
   # --- Non-GPU specific settings ---
   inline_model_loading: false
@@ -57,7 +97,11 @@ model:
   prompt_template:
   vision: false
 
-# --- Draft, LoRA, Embeddings, Sampling, Developer sections remain unchanged ---
+# ------------------------------------------------------------------------------
+# SECTION: Draft Model
+# PURPOSE: Configuration for an optional, smaller "draft" model used for
+#          speculative decoding to speed up generation. (Advanced feature).
+# ------------------------------------------------------------------------------
 draft_model:
   draft_model_dir: models
   draft_model_name:
@@ -66,18 +110,36 @@ draft_model:
   draft_cache_mode: FP16
   draft_gpu_split: []
 
+# ------------------------------------------------------------------------------
+# SECTION: LoRA
+# PURPOSE: Configuration for loading LoRA (Low-Rank Adaptation) adapters to
+#          modify the behavior of the base model.
+# ------------------------------------------------------------------------------
 lora:
   lora_dir: loras
   loras:
 
+# ------------------------------------------------------------------------------
+# SECTION: Embeddings
+# PURPOSE: Configuration for loading a dedicated model for generating text
+#          embeddings.
+# ------------------------------------------------------------------------------
 embeddings:
   embedding_model_dir: models
   embeddings_device: cpu
   embedding_model_name:
 
+# ------------------------------------------------------------------------------
+# SECTION: Sampling
+# PURPOSE: Allows for overriding default sampling parameters from a preset file.
+# ------------------------------------------------------------------------------
 sampling:
   override_preset:
 
+# ------------------------------------------------------------------------------
+# SECTION: Developer
+# PURPOSE: Contains experimental or debugging flags. Use with caution.
+# ------------------------------------------------------------------------------
 developer:
   unsafe_launch: false
   disable_request_streaming: false
