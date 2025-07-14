@@ -1,6 +1,9 @@
 ⚠️ Project Status: Prototype/Pre-Alpha
 
-This is an experimental prototype in pre-alpha development. TabbyAPI-Forge is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
+This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi 
+is a proof-of-concept implementation exploring secure, air-gapped LLM deployment 
+patterns. While functional, it should be considered unstable and subject to significant 
+changes. Do NOT consider it fully secure at this time.
 
 ===========================================
 
