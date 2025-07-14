@@ -1,6 +1,12 @@
+⚠️ Project Status: Prototype/Pre-Alpha
+
+This is an experimental prototype in pre-alpha development. TabbyAPI-Forge is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
+
+===========================================
+
 # TabbyAPI-Somner
 
-A production-ready containerized deployment of TabbyAPI optimized for secure, air-gapped environments with ExllamaV3 acceleration and mesh networking capabilities.
+A production-ready containerized deployment of TabbyAPI optimized for secure, remote local or air-gapped environments with ExllamaV3 acceleration and mesh networking capabilities.
 
 ## 🚀 Modern Technology Stack
 
