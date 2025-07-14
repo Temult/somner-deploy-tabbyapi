@@ -1,26 +1,27 @@
-⚠️ Project Status: Prototype/Pre-Alpha
+Here's your README with all the hyperlinks added:
 
-This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi 
-is a proof-of-concept implementation exploring secure, air-gapped LLM deployment 
-patterns. While functional, it should be considered unstable and subject to significant 
-changes. Do NOT consider it fully secure at this time.
+---
+
+⚠️ **Project Status: Prototype/Pre-Alpha**
+
+This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
 
 ===========================================
 
 # TabbyAPI-Somner
 
-A production-ready containerized deployment of TabbyAPI optimized for secure, remote local or air-gapped environments with ExllamaV3 acceleration and mesh networking capabilities.
+A production-ready containerized deployment of [TabbyAPI](https://github.com/theroyallab/TabbyAPI) optimized for secure, remote local or air-gapped environments with [ExllamaV3](https://github.com/turboderp-org/exllamav3) acceleration and mesh networking capabilities.
 
 ## 🚀 Modern Technology Stack
 
-- **TabbyAPI** - Enhanced with ExllamaV3 inference backend for optimal throughput
-- **CUDA 12.8.0** - Latest NVIDIA driver compatibility with optimized binaries
-- **PyTorch 2.7.1+cu128** - Current PyTorch ecosystem with CUDA 12.8 acceleration
-- **Flash Attention 2.8.0** - Memory-efficient attention mechanism for larger context windows
-- **Python 3.11** - Modern Python runtime with performance improvements
-- **Caddy 2.7.6** - Zero-config HTTPS reverse proxy with automatic reloading
-- **Tailscale** - Built-in mesh networking for secure remote access
-- **ExllamaV3** - Latest generation inference backend
+- **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
+- **[CUDA 12.8.0](https://developer.nvidia.com/cuda-downloads)** - Latest [NVIDIA](https://www.nvidia.com/) driver compatibility with optimized binaries
+- **[PyTorch 2.7.1+cu128](https://pytorch.org/)** - Current [PyTorch](https://pytorch.org/) ecosystem with CUDA 12.8 acceleration
+- **[Flash Attention 2.8.0](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism for larger context windows
+- **[Python 3.11](https://www.python.org/)** - Modern Python runtime with performance improvements
+- **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy with automatic reloading
+- **[Tailscale](https://tailscale.com/)** - Built-in mesh networking for secure remote access
+- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** - Latest generation inference backend
 
 ## 🔒 Privacy-First Security Design
 
@@ -28,13 +29,13 @@ A production-ready containerized deployment of TabbyAPI optimized for secure, re
 - **No Traceback Exposure** - Server errors don't leak internal information
 - **Reduced Attack Surface** - Minimal dependencies, non-root execution, capability-based security
 - **Air-Gap Ready** - Pre-built dependency wheelhouse eliminates external network requirements
-- **Mesh Network Security** - Encrypted Tailscale tunnels without port forwarding
+- **Mesh Network Security** - Encrypted [Tailscale](https://tailscale.com/) tunnels without port forwarding
 
 ## 📦 Quick Start
 
 ### Prerequisites
 
-1. **Install Tailscale** on your client device:
+1. **Install [Tailscale](https://tailscale.com/)** on your client device:
    ```bash
    # macOS
    brew install tailscale
@@ -47,7 +48,7 @@ A production-ready containerized deployment of TabbyAPI optimized for secure, re
 
 2. **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys)
 
-### Deploy with Docker
+### Deploy with [Docker](https://www.docker.com/)
 
 ```bash
 # Pull the image
@@ -71,16 +72,16 @@ docker run -d \
 Place your model files in the `./models` directory. The container will automatically detect and load compatible models.
 
 #### Model Support
-- **ExllamaV2/V3** quantized models (recommended)
-- **GGUF** models
-- **Safetensors** models
+- **[ExllamaV2](https://github.com/turboderp-org/exllamav2)/[V3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
+- **[GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md)** models
+- **[Safetensors](https://github.com/huggingface/safetensors)** models
 
 #### API Access
 
 Once running, the container provides:
 - **Local Access**: `http://localhost:80`
-- **Mesh Network Access**: `http://runpod-Somner.tailnet-name.ts.net` (via Tailscale)
-- **OpenAI-Compatible API**: Drop-in replacement for OpenAI API endpoints
+- **Mesh Network Access**: `http://runpod-Somner.tailnet-name.ts.net` (via [Tailscale](https://tailscale.com/))
+- **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
 
 ## 🔧 Advanced Configuration
 
@@ -88,7 +89,7 @@ Once running, the container provides:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `TAILSCALE_AUTHKEY` | Tailscale authentication key | Required |
+| `TAILSCALE_AUTHKEY` | [Tailscale](https://tailscale.com/) authentication key | Required |
 | `DEBUG_KEY` | Debug mode activation key | Disabled |
 
 ### Custom Configuration
@@ -131,8 +132,8 @@ The container includes all dependencies and requires no internet access after de
 
 ## 📊 Performance Features
 
-- **ExllamaV3 Backend** - Optimized inference performance
-- **Flash Attention 2.8** - Memory-efficient attention computation
+- **[ExllamaV3](https://github.com/turboderp-org/exllamav3) Backend** - Optimized inference performance
+- **[Flash Attention 2.8](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention computation
 - **Automatic GPU Splitting** - Multi-GPU support with automatic memory allocation
 - **FP16 Caching** - Reduced memory footprint with maintained precision
 - **Tensor Parallelism** - Distributed computation across multiple GPUs
@@ -142,15 +143,15 @@ The container includes all dependencies and requires no internet access after de
 - **Non-Root Execution** - All services run as unprivileged user
 - **Capability-Based Security** - Minimal system capabilities
 - **No External Dependencies** - All packages pre-built during image creation
-- **Encrypted Mesh Networking** - Tailscale WireGuard tunnels
+- **Encrypted Mesh Networking** - [Tailscale](https://tailscale.com/) [WireGuard](https://www.wireguard.com/) tunnels
 - **Request Isolation** - No persistent request logging or history
 
 ## 📋 System Requirements
 
-- **GPU**: NVIDIA GPU with CUDA 12.8 support
+- **GPU**: [NVIDIA](https://www.nvidia.com/) GPU with [CUDA 12.8](https://developer.nvidia.com/cuda-downloads) support
 - **Memory**: 8GB+ system RAM, 4GB+ VRAM (varies by model)
 - **Storage**: 10GB+ for container, additional space for models
-- **Network**: Tailscale account for mesh networking
+- **Network**: [Tailscale](https://tailscale.com/) account for mesh networking
 
 ## 🔍 Health Monitoring
 
@@ -162,12 +163,11 @@ The container includes built-in health checks:
 
 ## 📄 License
 
-This project builds upon TabbyAPI and related open-source projects. Please respect the licenses of all included components.
+This project builds upon [TabbyAPI](https://github.com/theroyallab/TabbyAPI) and related open-source projects. Please respect the licenses of all included components.
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please submit issues and pull requests for:
 - Performance optimizations
-- Additional model format support
 - Security enhancements
 - Documentation improvements
