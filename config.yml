@@ -1,0 +1,85 @@
+# ==============================================================================
+# TabbyAPI Configuration File
+# ==============================================================================
+#
+# DESCRIPTION:
+# This file controls the behavior of the TabbyAPI server, including networking,
+# logging, and model loading parameters.
+#
+# AI-NOTE: This file is a primary interface for users to customize the server.
+# Key parameters include `host`, `port`, `model_dir`, and `model_name`.
+#
+
+# Options for networking
+network:
+  host: 0.0.0.0
+  port: 5000
+  disable_auth: false
+  disable_fetch_requests: false
+  send_tracebacks: false
+  api_servers: ["OAI"]
+
+# Options for logging
+logging:
+  log_prompt: false
+  log_generation_params: false
+  log_requests: false
+
+# Options for model overrides and loading
+model:
+  # ARCHITECTURAL NOTE: This directory points to `/workspace/model`.
+  # On RunPod, `/workspace` is the persistent volume. This is the correct
+  # location for large model files, separating them from the container's
+  # application code (which lives in /opt).
+  model_dir: /workspace/model
+
+  # --- Explicitly set max_seq_len ---
+  max_seq_len: 16384
+
+  # --- Keep RoPE settings commented out/blank to use model's config.json ---
+  # rope_scale:
+  # rope_alpha:
+
+  # --- Other settings ---
+  use_dummy_models: false
+  cache_mode: FP16
+  chunk_size: 2048
+  # cache_size: Let it default to max_seq_len
+
+  # --- Non-GPU specific settings ---
+  inline_model_loading: false
+  dummy_model_names: ["gpt-3.5-turbo"]
+  use_as_default: []
+  tensor_parallel: false
+  gpu_split_auto: true
+  autosplit_reserve: [96]
+  gpu_split: []
+  prompt_template:
+  vision: false
+
+# --- Draft, LoRA, Embeddings, Sampling, Developer sections remain unchanged ---
+draft_model:
+  draft_model_dir: models
+  draft_model_name:
+  draft_rope_scale: 1.0
+  draft_rope_alpha:
+  draft_cache_mode: FP16
+  draft_gpu_split: []
+
+lora:
+  lora_dir: loras
+  loras:
+
+embeddings:
+  embedding_model_dir: models
+  embeddings_device: cpu
+  embedding_model_name:
+
+sampling:
+  override_preset:
+
+developer:
+  unsafe_launch: false
+  disable_request_streaming: false
+  cuda_malloc_backend: false
+  realtime_process_priority: false

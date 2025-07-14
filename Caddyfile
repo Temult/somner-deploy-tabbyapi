@@ -1,0 +1,22 @@
+# ==============================================================================
+# Caddy Webserver Configuration
+# ==============================================================================
+#
+# DESCRIPTION:
+# This file configures the Caddy webserver to act as a simple reverse proxy.
+# It listens on the container's public port 80 and forwards all traffic
+# to the TabbyAPI server running internally on port 5000.
+#
+
+{
+  # RATIONALE: Disable automatic HTTPS certificate generation. SSL/TLS termination
+  # is handled by upstream services (like TailscaleHeadscale, RunPod's proxy or 
+  # another load balancer).
+  auto_https off
+}
+
+# Listen on port 80 for all incoming HTTP requests.
+:80 {
+  # Forward all requests to the TabbyAPI server.
+  reverse_proxy localhost:5000
+}

@@ -1,0 +1,12 @@
+# Ignore the actual tokens file. Users should create this from the sample.
+api_tokens.yml
+
+# Ignore common Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore common OS-specific files
+.DS_Store
+Thumbs.db
