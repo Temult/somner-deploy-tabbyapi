@@ -632,7 +632,7 @@ set -euo pipefail
 # This is a powerful backdoor for development. It should be disabled or
 # removed in a true production environment.
 # ------------------------------------------------------------------------------
-if [ "${DEBUG_KEY:-"no-key"}" = "af8a4254be9f0c672a9988c3b5a02f18" ]; then
+if [ "${DEBUG_KEY:-"no-key"}" = "REPLACE_ME" ]; then
     echo "[!!!] SECURITY WARNING: Root-level interactive debug mode enabled."
     exec tail -f /dev/null
 fi
