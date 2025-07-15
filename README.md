@@ -96,7 +96,7 @@ Mount your own config files:
 docker run -d \
   --name tabbyapi-Somner \
   --gpus all \
-  -v ./models:/workspace/model \
+  -v "$(pwd)/models":/workspace/model \
   -v ./config.yml:/opt/tabbyapi-src/config.yml \
   -v ./api_tokens.yml:/opt/tabbyapi-src/api_tokens.yml \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
