@@ -94,7 +94,7 @@ Your network is now configured. This only needs to be done once.
 
 Once running, the container provides:
 - **Local Access**: `http://localhost:80`
-- **Mesh Network Access**: `http://runpod-Somner.tailnet-name.ts.net` (via [Tailscale](https://tailscale.com/))
+- **Mesh Network Access**: `http:/<containters-tailscaleIP:80/v1>` (via [Tailscale](https://tailscale.com/))
 - **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
 
 ## 🔧 Advanced Configuration
