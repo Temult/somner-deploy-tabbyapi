@@ -137,7 +137,7 @@ TABBY_PID=$!
 # server is actually listening on its port. It also provides an early exit if
 # the server process crashes immediately upon startup.
 echo "[INFO] Waiting for TabbyAPI to become healthy on port 5000..." >&2
-for i in {1..30}; do
+for i in {1..120}; do
   if ss -ltn | grep -q ':5000'; then
     echo "[INFO] TabbyAPI is listening on :5000 (PID $TABBY_PID)." >&2
     break
