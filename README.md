@@ -68,9 +68,27 @@ docker run -d \
 Place your model files in the `./models` directory. The container will automatically detect and load compatible models.
 
 #### Model Support
-- **[ExllamaV2](https://github.com/turboderp-org/exllamav2)/[V3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
+- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
 - **[GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md)** models
 - **[Safetensors](https://github.com/huggingface/safetensors)** models
+
+- ## 🔒 Network Configuration (Tailscale ACLs)
+
+To allow your devices to securely connect to the container, you must configure your Tailscale network's Access Control Lists (ACLs). This project includes a recommended sample file to make this easy.
+
+**One-Time Setup:**
+
+1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
+
+2.  **Edit the File:** Open the file and find the `tagOwners` section. Replace `"autogroup:admin"` with your own Tailscale login email if you prefer, for example: `["your-email@example.com"]`.
+
+3.  **Apply the ACLs:**
+    *   Navigate to your [**Tailscale ACL settings page**](https://login.tailscale.com/admin/acls).
+    *   Delete the entire contents of the policy editor.
+    *   Copy the entire contents of your edited `tailscale-acl.json.sample` file and paste it into the editor.
+    *   Click "Save".
+
+Your network is now configured. This only needs to be done once.
 
 #### API Access
 
