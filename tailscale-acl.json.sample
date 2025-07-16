@@ -1,0 +1,53 @@
+{
+	// ==============================================================================
+	// Tailscale ACL Policy for TabbyAPI Deployment
+	// ==============================================================================
+	//
+	// INSTRUCTIONS:
+	// 1. Open your Tailscale Admin Console -> ACLs.
+	// 2. Delete the entire contents of the editor.
+	// 3. Paste the contents of this file into the editor.
+	// 4. In the "tagOwners" section below, replace "autogroup:admin" with your
+	//    own Tailscale login email if you prefer, for example: ["user@example.com"].
+	// 5. Save the changes.
+	//
+	// ==============================================================================
+
+	"tagOwners": {
+		// This section defines who is allowed to create devices with specific tags.
+		// RATIONALE: Using "autogroup:admin" is a best practice, as it means any user
+		// you designate as an Admin in Tailscale can manage these servers.
+		"tag:runpod-forge-servers": ["autogroup:admin"]
+	},
+
+	"grants": [
+		// Grant #1: Allow access to the RunPod servers on port 80 (HTTP).
+		// This rule is the pinhole that allows your client (e.g., SillyTavern)
+		// to connect to the Caddy reverse proxy inside the container.
+		{
+			"src": ["autogroup:member"],
+			"dst": ["tag:runpod-forge-servers"],
+			"ip":  ["80"]
+		},
+
+		// Grant #2: Allow general communication between all your personal devices.
+		// This is a standard rule that makes your private network feel like a
+		// normal LAN, allowing you to SSH, share files, etc., between your clients.
+		{
+			"src": ["autogroup:member"],
+			"dst": ["autogroup:member"],
+			"ip":  ["*"]
+		}
+	],
+
+	"ssh": [
+		// This is a standard default that allows any user to SSH into
+		// any of their own devices as either a regular user or root.
+		{
+			"action": "check",
+			"src":    ["autogroup:member"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot", "root"]
+		}
+	]
+}
