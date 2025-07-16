@@ -1,13 +1,33 @@
 Directory Structure:
 
 └── ./
+    ├── .gitignore
     ├── api_tokens.yml.sample
     ├── Caddyfile
     ├── config.yml
     ├── Dockerfile
     ├── README.md
-    └── start_services.sh
+    ├── start_services.sh
+    └── tailscale-acl.json.sample
 
+
+
+---
+File: /.gitignore
+---
+
+# Ignore the actual tokens file. Users should create this from the sample.
+api_tokens.yml
+
+# Ignore common Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore common OS-specific files
+.DS_Store
+Thumbs.db
 
 
 ---
@@ -483,15 +503,33 @@ docker run -d \
 Place your model files in the `./models` directory. The container will automatically detect and load compatible models.
 
 #### Model Support
-- **[ExllamaV2](https://github.com/turboderp-org/exllamav2)/[V3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
+- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
 - **[GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md)** models
 - **[Safetensors](https://github.com/huggingface/safetensors)** models
+
+- ## 🔒 Network Configuration (Tailscale ACLs)
+
+To allow your devices to securely connect to the container, you must configure your Tailscale network's Access Control Lists (ACLs). This project includes a recommended sample file to make this easy.
+
+**One-Time Setup:**
+
+1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
+
+2.  **Edit the File:** Open the file and find the `tagOwners` section. Replace `"autogroup:admin"` with your own Tailscale login email if you prefer, for example: `["your-email@example.com"]`.
+
+3.  **Apply the ACLs:**
+    *   Navigate to your [**Tailscale ACL settings page**](https://login.tailscale.com/admin/acls).
+    *   Delete the entire contents of the policy editor.
+    *   Copy the entire contents of your edited `tailscale-acl.json.sample` file and paste it into the editor.
+    *   Click "Save".
+
+Your network is now configured. This only needs to be done once.
 
 #### API Access
 
 Once running, the container provides:
 - **Local Access**: `http://localhost:80`
-- **Mesh Network Access**: `http://runpod-Somner.tailnet-name.ts.net` (via [Tailscale](https://tailscale.com/))
+- **Mesh Network Access**: `http:/<containters-tailscaleIP:80/v1>` (via [Tailscale](https://tailscale.com/))
 - **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
 
 ## 🔧 Advanced Configuration
@@ -511,7 +549,7 @@ Mount your own config files:
 docker run -d \
   --name tabbyapi-Somner \
   --gpus all \
-  -v ./models:/workspace/model \
+  -v "$(pwd)/models":/workspace/model \
   -v ./config.yml:/opt/tabbyapi-src/config.yml \
   -v ./api_tokens.yml:/opt/tabbyapi-src/api_tokens.yml \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
@@ -621,23 +659,6 @@ File: /start_services.sh
 set -euo pipefail
 
 # ==============================================================================
-# DEVELOPMENT/DEBUG HOOK
-# ==============================================================================
-# AI-NOTE: This section provides a mechanism for privileged debugging. If the
-# environment variable DEBUG_KEY matches the hardcoded key, the script will
-# pause indefinitely, allowing a developer to SSH into the running container
-# for manual inspection without any services starting.
-#
-# [!!] SECURITY WARNING [!!]
-# This is a powerful backdoor for development. It should be disabled or
-# removed in a true production environment.
-# ------------------------------------------------------------------------------
-if [ "${DEBUG_KEY:-"no-key"}" = "REPLACE_ME" ]; then
-    echo "[!!!] SECURITY WARNING: Root-level interactive debug mode enabled."
-    exec tail -f /dev/null
-fi
-
-# ==============================================================================
 # Initial Root-Level Setup & Privilege Drop
 # ==============================================================================
 # RATIONALE: The script starts as the `root` user. This block performs actions
@@ -728,7 +749,7 @@ TABBY_PID=$!
 # server is actually listening on its port. It also provides an early exit if
 # the server process crashes immediately upon startup.
 echo "[INFO] Waiting for TabbyAPI to become healthy on port 5000..." >&2
-for i in {1..30}; do
+for i in {1..120}; do
   if ss -ltn | grep -q ':5000'; then
     echo "[INFO] TabbyAPI is listening on :5000 (PID $TABBY_PID)." >&2
     break
@@ -759,3 +780,64 @@ echo "[INFO] All services ready. PIDs => tailscaled:${TAILSCALED_PID}, tabby:${T
 # This keeps the container alive and ensures a clean shutdown if any service fails.
 wait -n $TAILSCALED_PID $TABBY_PID $CADDY_PID
 echo "[INFO] A supervised process has exited. Shutting down."
+
+
+
+---
+File: /tailscale-acl.json.sample
+---
+
+{
+	// ==============================================================================
+	// Tailscale ACL Policy for TabbyAPI Deployment
+	// ==============================================================================
+	//
+	// INSTRUCTIONS:
+	// 1. Open your Tailscale Admin Console -> ACLs.
+	// 2. Delete the entire contents of the editor.
+	// 3. Paste the contents of this file into the editor.
+	// 4. In the "tagOwners" section below, replace "autogroup:admin" with your
+	//    own Tailscale login email if you prefer, for example: ["user@example.com"].
+	// 5. Save the changes.
+	//
+	// ==============================================================================
+
+	"tagOwners": {
+		// This section defines who is allowed to create devices with specific tags.
+		// RATIONALE: Using "autogroup:admin" is a best practice, as it means any user
+		// you designate as an Admin in Tailscale can manage these servers.
+		"tag:runpod-forge-servers": ["autogroup:admin"]
+	},
+
+	"grants": [
+		// Grant #1: Allow access to the RunPod servers on port 80 (HTTP).
+		// This rule is the pinhole that allows your client (e.g., SillyTavern)
+		// to connect to the Caddy reverse proxy inside the container.
+		{
+			"src": ["autogroup:member"],
+			"dst": ["tag:runpod-forge-servers"],
+			"ip":  ["80"]
+		},
+
+		// Grant #2: Allow general communication between all your personal devices.
+		// This is a standard rule that makes your private network feel like a
+		// normal LAN, allowing you to SSH, share files, etc., between your clients.
+		{
+			"src": ["autogroup:member"],
+			"dst": ["autogroup:member"],
+			"ip":  ["*"]
+		}
+	],
+
+	"ssh": [
+		// This is a standard default that allows any user to SSH into
+		// any of their own devices as either a regular user or root.
+		{
+			"action": "check",
+			"src":    ["autogroup:member"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot", "root"]
+		}
+	]
+}
+
