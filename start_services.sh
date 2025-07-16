@@ -30,23 +30,6 @@
 set -euo pipefail
 
 # ==============================================================================
-# DEVELOPMENT/DEBUG HOOK
-# ==============================================================================
-# AI-NOTE: This section provides a mechanism for privileged debugging. If the
-# environment variable DEBUG_KEY matches the hardcoded key, the script will
-# pause indefinitely, allowing a developer to SSH into the running container
-# for manual inspection without any services starting.
-#
-# [!!] SECURITY WARNING [!!]
-# This is a powerful backdoor for development. It should be disabled or
-# removed in a true production environment.
-# ------------------------------------------------------------------------------
-if [ "${DEBUG_KEY:-"no-key"}" = "REPLACE_ME" ]; then
-    echo "[!!!] SECURITY WARNING: Root-level interactive debug mode enabled."
-    exec tail -f /dev/null
-fi
-
-# ==============================================================================
 # Initial Root-Level Setup & Privilege Drop
 # ==============================================================================
 # RATIONALE: The script starts as the `root` user. This block performs actions
