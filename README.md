@@ -30,14 +30,16 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 - **Air-Gap Ready** - Pre-built dependency wheelhouse eliminates external network requirements
 - **Mesh Network Security** - Encrypted [Tailscale](https://tailscale.com/) tunnels without port forwarding
 
-## 📦 Quick Start
+---
 
-### Prerequisites
+## 📦 Getting Started Guide
+
+### Step 1: Prerequisites
 
 1.  **Install [Tailscale](https://tailscale.com/)** on your client device.
 2.  **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
-### Deploy with Docker
+### Step 2: Deploy with Docker
 
 ```bash
 # Pull the development image
@@ -47,7 +49,7 @@ docker pull yourusername/somner:dev1
 # On your host machine, create a directory for your models
 mkdir -p ./models
 
-# Run the container (see First-Time Configuration below before running)
+# Run the container (see Step 3 below before running)
 docker run -d \
   --name tabbyapi-somner-dev \
   --gpus all \
@@ -57,9 +59,7 @@ docker run -d \
   yourusername/somner:dev1
 ```
 
----
-
-## ⚙️ First-Time Configuration: Setting Your Model
+### Step 3: First-Time Configuration (Setting Your Model)
 
 When you first launch the container, it may fail to start with a "model not found" or "config file not found" error in the logs. **This is expected.** The container needs to be told which model you want to use from your persistent `/workspace` volume.
 
@@ -92,7 +92,7 @@ model:
 ```
 
 **4. Restart the Pod:**
-Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed.
+Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed for the config file if you are on a platform like RunPod that mounts the entire `/workspace`.
 
 #### Why This Approach?
 This method separates **configuration** (your settings) from the immutable **container**. To swap models, you can now edit your `config.yml` at `/workspace/config.yml` and restart your session/pod without ever needing to rebuild the container image.
@@ -109,7 +109,7 @@ This method separates **configuration** (your settings) from the immutable **con
 
 ### Local Docker Configuration Example
 
-For local Docker runs (not on RunPod), you still map your host directories into the container's `/workspace`. The container's internal logic remains the same.
+For local Docker runs (not on RunPod), you must map your host files and directories into the container's `/workspace`. The container's internal logic remains the same.
 
 ```bash
 # Create the necessary files and directories on your local machine first
@@ -117,7 +117,7 @@ mkdir -p ./models
 touch ./config.yml
 touch ./api_tokens.yml
 
-# Run the container
+# Run the container, mapping all necessary files
 docker run -d \
   --name tabbyapi-somner-dev \
   --gpus all \
@@ -129,9 +129,18 @@ docker run -d \
 ```
 *Note: We are mapping to `/workspace/config.yml`, not `/opt/tabbyapi-src/config.yml`.*
 
+### Model Customization
+To customize model behavior, edit your persistent `/workspace/config.yml` file. You can change:
+- Maximum sequence length
+- Cache settings (`cache_mode`)
+- GPU memory allocation (`gpu_split_auto`)
+- Sampling parameters
+
 ---
 
-- ## 🔒 Network Configuration (Tailscale ACLs)
+## 🔒 Network Configuration
+
+### Tailscale ACLs
 
 To allow your devices to securely connect to the container, you must configure your Tailscale network's Access Control Lists (ACLs). This project includes a recommended sample file to make this easy.
 
@@ -140,57 +149,14 @@ To allow your devices to securely connect to the container, you must configure y
 1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
 2.  **Edit and Apply:** Follow the instructions in the sample file to apply the ACLs to your Tailscale admin console. This only needs to be done once.
 
-#### API Access
+### API Access
 
 Once running, the container provides:
 - **Local Access**: `http://localhost:80`
 - **Mesh Network Access**: `http://<containers-tailscale-ip>:80/v1` (via [Tailscale](https://tailscale.com/))
 - **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
 
-## 🔧 Advanced Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `TAILSCALE_AUTHKEY` | [Tailscale](https://tailscale.com/) authentication key | Required |
-
-### Custom Configuration Example
-
-This `docker run` command shows how to mount your models, your new persistent `config.yml`, and your `api_tokens.yml`.
-
-```bash
-docker run -d \
-  --name tabbyapi-somner-dev \
-  --gpus all \
-  -v "$(pwd)/models":/workspace/models \
-  -v "$(pwd)/config.yml":/opt/tabbyapi-src/config.yml \
-  -v "$(pwd)/api_tokens.yml":/opt/tabbyapi-src/api_tokens.yml \
-  -e TAILSCALE_AUTHKEY=your-auth-key-here \
-  yourusername/somner:dev1
-```
-
-### Model Configuration
-Edit your persistent `/workspace/config.yml` file to customize:
-- Maximum sequence length
-- Cache settings (`cache_mode`)
-- GPU memory allocation (`gpu_split_auto`)
-- Sampling parameters
-
-## 🌐 Deployment Scenarios
-
-### Local Development
-```bash
-docker run --gpus all -p 80:80 -v ./models:/workspace/models -v ./config.yml:/opt/tabbyapi-src/config.yml yourusername/somner:dev1
-```
-
-### Remote/Cloud Deployment
-```bash
-docker run --gpus all -e TAILSCALE_AUTHKEY=your-key -v /path/to/models:/workspace/models -v /path/to/config.yml:/opt/tabbyapi-src/config.yml yourusername/somner:dev1
-```
-
-### Air-Gapped Environment
-The container includes all dependencies and requires no internet access after deployment.
+---
 
 ## 📊 Performance Features
 
