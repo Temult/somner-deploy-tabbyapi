@@ -61,15 +61,15 @@ docker run -d \
 
 ## ⚙️ First-Time Configuration: Setting Your Model
 
-When you first launch the container, it will likely fail to start with a "model not found" error in the logs. **This is expected.** The container is immutable and doesn't know which model you want to use from your persistent volume.
+When you first launch the container, it may fail to start with a "model not found" or "config file not found" error in the logs. **This is expected.** The container needs to be told which model you want to use from your persistent `/workspace` volume.
 
-You must create a `config.yml` file on your persistent `/workspace` volume to tell the server which model to load.
+You must create a `config.yml` file at the root of your `/workspace` volume.
 
 **1. Connect to Your Volume:**
 Open a terminal to your RunPod volume (or use `docker exec -it <container_name> /bin/bash` if running locally).
 
 **2. Copy the Sample Configuration:**
-The container includes a sample config. Run this command to copy it to your persistent volume where you can safely edit it:
+The container includes a sample config. Run this command to copy it to the correct location on your persistent volume:
 
 ```bash
 cp /opt/tabbyapi-src/config_sample.yml /workspace/config.yml
@@ -88,21 +88,46 @@ nano /workspace/config.yml
 model:
   model_dir: /workspace/models
   # Change this to your model's folder name
-  model_name: L3.3-70B-Sample-Model-Name 
+  model_name: L3.3-YOUR-MODEL-HERE 
 ```
 
-**4. Mount Your Configuration (Important!):**
-In your RunPod template (or your `docker run` command), you must map your new config file into the container. This overrides the default config.
-
-Add this volume mount:
-*   **Host Path:** `/workspace/config.yml`
-*   **Container Path:** `/opt/tabbyapi-src/config.yml`
-
-**5. Restart the Pod:**
-Save your changes and restart the pod. It will now find your configuration and load the correct model.
+**4. Restart the Pod:**
+Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed.
 
 #### Why This Approach?
-This method follows the best practice of separating **configuration** (your settings) from the **container** (the application). Your `config.yml` on the persistent volume is your "single source of truth." You can now change models anytime by just editing this file and restarting the pod, without ever needing to rebuild the container image.
+This method follows the best practice of separating **configuration** (your settings) from the **container** (the application). Your `config.yml` at `/workspace/config.yml` is your "single source of truth." You can now change models anytime by just editing this file and restarting the pod, without ever needing to rebuild the container image.
+
+---
+
+## 🔧 Advanced Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TAILSCALE_AUTHKEY` | [Tailscale](https://tailscale.com/) authentication key | Required |
+
+### Local Docker Configuration Example
+
+For local Docker runs (not on RunPod), you still map your host directories into the container's `/workspace`. The container's internal logic remains the same.
+
+```bash
+# Create the necessary files and directories on your local machine first
+mkdir -p ./models
+touch ./config.yml
+touch ./api_tokens.yml
+
+# Run the container
+docker run -d \
+  --name tabbyapi-somner-dev \
+  --gpus all \
+  -v "$(pwd)/models":/workspace/models \
+  -v "$(pwd)/config.yml":/workspace/config.yml \
+  -v "$(pwd)/api_tokens.yml":/workspace/api_tokens.yml \
+  -e TAILSCALE_AUTHKEY=your-auth-key-here \
+  yourusername/somner:dev1
+```
+*Note: We are mapping to `/workspace/config.yml`, not `/opt/tabbyapi-src/config.yml`.*
 
 ---
 
