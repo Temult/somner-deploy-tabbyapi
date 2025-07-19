@@ -3,8 +3,9 @@ Directory Structure:
 └── ./
     ├── .gitignore
     ├── api_tokens.yml.sample
+    ├── build.sh.sample
     ├── Caddyfile
-    ├── config.yml
+    ├── config.yml.sample
     ├── Dockerfile
     ├── README.md
     ├── start_services.sh
@@ -18,6 +19,12 @@ File: /.gitignore
 
 # Ignore the actual tokens file. Users should create this from the sample.
 api_tokens.yml
+
+# Ignore the user-specific build script. The .sample file is tracked instead.
+build.sh
+
+# Ignore the user-specific configuration file. The .sample file is tracked instead.
+config.yml
 
 # Ignore common Python cache files
 __pycache__/
@@ -36,6 +43,95 @@ File: /api_tokens.yml.sample
 
 api_key: REPLACE_ME
 admin_key: REPLACE_ME
+
+
+---
+File: /build.sh.sample
+---
+
+#!/usr/bin/env bash
+# ==============================================================================
+# Docker Build Script for Somner-Deploy-TabbyAPI (Sample)
+# ==============================================================================
+#
+# SUMMARY:
+# This script provides a reproducible and easy-to-use method for building the
+# project's Docker container. It encapsulates all necessary build arguments,
+# making the build process consistent, transparent, and less error-prone.
+#
+# USAGE:
+# 1. Copy this file to `build.sh`: cp build.sh.sample build.sh
+# 2. Edit `build.sh` to set your Docker Hub username.
+# 3. Make the script executable: `chmod +x build.sh`
+# 4. Run it from the repository root: `./build.sh`
+#
+# AI-NOTE: For Windows users, `chmod` is not required. Use a bash-compatible
+# terminal (like Git Bash) and run the script with: `bash build.sh`
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Script Configuration and Safety
+# ------------------------------------------------------------------------------
+# RATIONALE: `set -e` ensures that the script will exit immediately if any
+# command fails. This prevents the script from continuing on an error, for
+# example, if Docker is not running or a build argument is misspelled.
+set -e
+
+# ==============================================================================
+# SECTION: Configuration
+# PURPOSE: Define all variables used in the build process. This centralizes
+#          configuration, making it easy to update dependency versions or
+#          retag the image without searching through command-line flags.
+# ==============================================================================
+
+# --- Docker Image Identification ---
+# RATIONALE: Defines the Docker Hub username, the name of the image, and the tag.
+# Modifying these allows you to build the image for a different repository or version.
+#
+# ACTION REQUIRED: Replace "yourusername" with your actual Docker Hub username.
+DOCKER_USERNAME="yourusername"
+IMAGE_NAME="somner"
+TAG="dev1"
+
+# --- Build Argument Versions ---
+# AI-NOTE: These variables correspond directly to the `ARG` instructions defined
+# in the Dockerfile. Changing a version here will inject it into the build process
+# without requiring any modifications to the Dockerfile's logic.
+CUDA_VERSION="12.8.0"
+PYTHON_VERSION="3.11"
+TORCH_VERSION="2.7.1+cu128"
+TORCHVISION_VERSION="0.22.1+cu128"
+TORCHAUDIO_VERSION="2.7.1+cu128"
+CADDY_VERSION="2.7.6"
+
+# ==============================================================================
+# SECTION: Build Execution
+# PURPOSE: Orchestrates the container build using the configuration defined above.
+# ==============================================================================
+
+echo "[INFO] Starting Docker build for image: ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
+echo "[INFO] Using Dockerfile: Dockerfile"
+
+# RATIONALE: We explicitly pass every version as a `--build-arg`. This makes the
+# build process transparent and highly reproducible. The Dockerfile is treated as
+# a template, and this script provides the concrete values, ensuring that anyone
+# running this script will produce an identical environment.
+docker build \
+  --tag "${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}" \
+  --build-arg CUDA_VERSION="${CUDA_VERSION}" \
+  --build-arg PYTHON_VERSION="${PYTHON_VERSION}" \
+  --build-arg TORCH_VERSION="${TORCH_VERSION}" \
+  --build-arg TORCHVISION_VERSION="${TORCHVISION_VERSION}" \
+  --build-arg TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION}" \
+  --build-arg CADDY_VERSION="${CADDY_VERSION}" \
+  -f Dockerfile .
+
+# --- Final Output ---
+echo ""
+echo "[SUCCESS] Build complete."
+echo "Image ready: ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
+echo "To push this image to Docker Hub, run: docker push ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
 
 
 ---
@@ -67,7 +163,7 @@ File: /Caddyfile
 
 
 ---
-File: /config.yml
+File: /config.yml.sample
 ---
 
 # ==============================================================================
@@ -119,13 +215,13 @@ model:
 
   # PARAMETER: model_name
   # The name of the specific model folder to load, located within `model_dir`.
-  model_name: Doctor-Shotgun_L3.3-70B-Magnum-Diamond-EXL3
+  model_name: REPLACE_ME
 
   # PARAMETER: max_seq_len
   # The maximum sequence length (context window) the model will support.
   # NOTE: Higher values consume significantly more VRAM, especially for the KV cache.
   # Ensure this value is compatible with the chosen model's architecture.
-  max_seq_len: 32768
+  max_seq_len: 65536
 
   # PARAMETER: rope_scale / rope_alpha
   # These parameters adjust RoPE scaling for models that require it to reach
@@ -255,7 +351,6 @@ ARG PYTHON_VERSION="3.11"
 ARG TORCH_VERSION="2.7.1+cu128"
 ARG TORCHVISION_VERSION="0.22.1+cu128"
 ARG TORCHAUDIO_VERSION="2.7.1+cu128"
-ARG FLASH_VERSION="2.8.0.post2"
 
 # Start from the NVIDIA CUDA development image, which includes the full CUDA toolkit.
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
@@ -264,7 +359,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
 ARG TORCH_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHAUDIO_VERSION
-ARG FLASH_VERSION
+ARG XFORMERS_VERSION
 
 # Set environment variables for non-interactive setup and CUDA architecture.
 ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
@@ -293,6 +388,10 @@ WORKDIR /workspace
 RUN git clone --depth 1 --branch main https://github.com/theroyallab/TabbyAPI.git
 WORKDIR /workspace/TabbyAPI
 RUN set -eux; \
+    # OPTIMIZATION: Remove the hidden .git directory after cloning. This directory
+    # contains git metadata that is unnecessary for the runtime container and
+    # can add several megabytes of bloat to the final image.
+    rm -rf .git && \
     # RATIONALE: Patch the source to use exllamav3 instead of the default exllamav2.
     sed -i 's/from backends.exllamav2.model import ExllamaV2Container/from backends.exllamav3.model import ExllamaV3Container/' common/model.py && \
     sed -i 's/new_container = await ExllamaV2Container.create(/new_container = await ExllamaV3Container.create(/' common/model.py && \
@@ -324,8 +423,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         echo "torch==${TORCH_VERSION}"; \
         echo "torchvision==${TORCHVISION_VERSION}"; \
         echo "torchaudio==${TORCHAUDIO_VERSION}"; \
-        echo "flash-attn==${FLASH_VERSION}"; \
-        echo "exllamav3 @ git+https://github.com/turboderp-org/exllamav3.git"; \
+		# RATIONALE: xformers is NOT included. The primary reason for its inclusion in
+        # the main branch was as a fallback dependency for exllamav2 on pre-Ampere GPUs.
+        # This branch uses exllamav3 (dev), which does not support pre-Ampere GPUs,
+        # making the xformers fallback unnecessary.
+        echo "exllamav3 @ git+https://github.com/turboderp-org/exllamav3.git@dev"; \
         echo "/workspace/TabbyAPI"; \
     } > /tmp/requirements.in && \
     # 3. Pre-install torch to satisfy dependencies for other packages during resolution.
@@ -355,7 +457,12 @@ ARG CADDY_VERSION="2.7.6"
 # Set environment variables.
 ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
 
-# Install minimal OS packages, Python, Tailscale, and create the non-root user.
+# OPTIMIZATION: Consolidate all OS-level setup and cleanup into a single RUN command.
+# RATIONALE: Each RUN command creates a new layer in the Docker image. By combining
+# these steps, we reduce the number of layers. More importantly, by running
+# `rm -rf /var/lib/apt/lists/*` in the *same* layer that `apt-get install` was
+# used, we ensure the apt cache files are truly discarded from the final image,
+# significantly reducing its size.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common iproute2 curl gnupg ca-certificates \
@@ -373,32 +480,38 @@ RUN apt-get update && \
     # Create a non-root user for security.
     groupadd --gid 1000 somneruser && \
     useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home somneruser && \
+    # Clean up apt cache to minimize image size.
     rm -rf /var/lib/apt/lists/*
 
 # Copy build artifacts from the builder stage.
 COPY --from=builder /wheels /wheels
-COPY --from=builder /workspace/TabbyAPI /workspace/TabbyAPI
+# RATIONALE: This copies the application source code to a safe, non-volume location (/opt).
+# This prevents the app code from being hidden by a volume mounted at /workspace on RunPod.
+# OPTIMIZATION: The source of this copy is smaller because the .git directory was removed in the builder stage.
+COPY --from=builder /workspace/TabbyAPI /opt/tabbyapi-src
 
-# Install the application and its dependencies correctly.
+# OPTIMIZATION: Consolidate all Python package installation and cleanup into a single RUN command.
+# RATIONALE: Similar to the apt-get optimization, this creates a single layer. We install all
+# Python packages from the `/wheels` directory and then delete that directory in the same command.
+# This ensures the large wheel files (~10-15GB) are not part of the final image.
 RUN \
     set -eux; \
-    # STEP 1: Move the application source code to a safe, non-volume location (/opt).
-    # RATIONALE: This prevents the app code from being hidden by a volume mounted at /workspace on RunPod.
-    mv /workspace/TabbyAPI /opt/tabbyapi-src && \
+    # STEP 1: Install all heavyweight dependencies from the pre-built wheels.
+    # The --no-cache-dir flag prevents pip from storing a cache, and --no-index
+    # ensures it only uses the local /wheels directory.
+    python3.11 -m pip install --no-cache-dir --no-index --find-links=/wheels \
+        torch torchvision torchaudio exllamav3 && \
     \
-    # STEP 2: Install all heavyweight dependencies from the pre-built wheels.
-    python3.11 -m pip install --no-index --find-links=/wheels \
-        torch torchvision torchaudio flash-attn exllamav3 && \
-    \
-    # STEP 3: Install TabbyAPI itself from its new source directory in /opt.
+    # STEP 2: Install TabbyAPI itself from its source directory in /opt.
     python3.11 -m pip install --no-cache-dir /opt/tabbyapi-src[cu128] && \
     \
-    # STEP 4: Grant ownership of the app directory to the runtime user for logs/etc.
+    # STEP 3: Grant ownership of the app directory to the runtime user for logs/etc.
     chown -R somneruser:somneruser /opt/tabbyapi-src && \
     \
-    # STEP 5: Clean up the wheelhouse to keep the final image small.
-    rm -rf /wheels
-
+    # STEP 4: Clean up the wheelhouse and any pycache files to keep the final image small.
+    rm -rf /wheels && \
+    find /usr/local/lib/python3.11/ -name "__pycache__" -type d -exec rm -rf {} +
+	
 # Configure the application environment by copying in config files.
 # The WORKDIR is set first to ensure the files are copied to the correct location.
 WORKDIR /opt/tabbyapi-src
@@ -433,9 +546,13 @@ ENTRYPOINT ["/usr/local/bin/start_services.sh"]
 File: /README.md
 ---
 
-⚠️ **Project Status: Prototype/Pre-Alpha**
-
-This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
+> **⚠️ WARNING: You are on the `dev/experimental-backend` development branch.**
+>
+> This branch contains experimental changes and may be unstable. It uses the development branch of **ExllamaV3**, which has different hardware requirements than the stable `main` branch.
+>
+> **CRITICAL: ExllamaV3 requires an NVIDIA GPU with Ampere architecture or newer (e.g., RTX 30xx, RTX 40xx, A4000+, A100). Pre-Ampere GPUs (e.g., Turing, Volta, Tesla T4, RTX 20xx) are NOT supported on this branch.**
+>
+> For stable, broader hardware support, please use the `main` branch.
 
 ===========================================
 
@@ -443,16 +560,17 @@ This is an experimental prototype in pre-alpha development. Somner-deploy-tabbya
 
 A production-ready containerized deployment of [TabbyAPI](https://github.com/theroyallab/TabbyAPI) optimized for secure, remote local or air-gapped environments with [ExllamaV3](https://github.com/turboderp-org/exllamav3) acceleration and mesh networking capabilities.
 
+This project is defined by its main [Dockerfile](./Dockerfile) and started by the [start_services.sh](./start_services.sh) script.
+
 ## 🚀 Modern Technology Stack
 
-- **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
+- **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3 (dev branch)](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
 - **[CUDA 12.8.0](https://developer.nvidia.com/cuda-downloads)** - Latest [NVIDIA](https://www.nvidia.com/) driver compatibility with optimized binaries
 - **[PyTorch 2.7.1+cu128](https://pytorch.org/)** - Current [PyTorch](https://pytorch.org/) ecosystem with CUDA 12.8 acceleration
-- **[Flash Attention 2.8.0](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism for larger context windows
+- **[Flash Attention](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism (included as a dependency of ExllamaV3)
 - **[Python 3.11](https://www.python.org/)** - Modern Python runtime with performance improvements
-- **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy with automatic reloading
+- **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy using this [Caddyfile](./Caddyfile).
 - **[Tailscale](https://tailscale.com/)** - Built-in mesh networking for secure remote access
-- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** - Latest generation inference backend
 
 ## 🔒 Privacy-First Security Design
 
@@ -462,75 +580,76 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 - **Air-Gap Ready** - Pre-built dependency wheelhouse eliminates external network requirements
 - **Mesh Network Security** - Encrypted [Tailscale](https://tailscale.com/) tunnels without port forwarding
 
-## 📦 Quick Start
+---
 
-### Prerequisites
+## 📦 Getting Started Guide
 
-1. **Install [Tailscale](https://tailscale.com/)** on your client device:
-   ```bash
-   # macOS
-   brew install tailscale
-   
-   # Ubuntu/Debian
-   curl -fsSL https://tailscale.com/install.sh | sh
-   
-   # Windows: Download from https://tailscale.com/download
-   ```
+### Step 1: Prerequisites
 
-2. **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys)
+1.  **Install [Tailscale](https://tailscale.com/)** on your client device.
+2.  **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
-### Deploy with [Docker](https://www.docker.com/)
+### Step 2: Deploy with Docker
+
+You can build the image yourself using the provided [`build.sh.sample`](./build.sh.sample) script, or pull a pre-built image.
 
 ```bash
-# Pull the image
-docker pull yourusername/tabbyapi-Somner:latest
+# Pull the development image
+# Replace 'yourusername/somner:dev1' with your own image if you built it yourself
+docker pull yourusername/somner:dev1
 
-# Create model directory
+# On your host machine, create a directory for your models
 mkdir -p ./models
 
-# Run the container
+# Run the container (see Step 3 below before running)
 docker run -d \
-  --name tabbyapi-Somner \
+  --name tabbyapi-somner-dev \
   --gpus all \
-  -v ./models:/workspace/model \
+  -v ./models:/workspace/models \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
   -p 80:80 \
-  yourusername/tabbyapi-Somner:latest
+  yourusername/somner:dev1
 ```
 
-### Configuration
+### Step 3: First-Time Configuration (Setting Your Model)
 
-Place your model files in the `./models` directory. The container will automatically detect and load compatible models.
+When you first launch the container, it may fail to start with a "model not found" or "config file not found" error in the logs. **This is expected.** The container needs to be told which model you want to use from your persistent `/workspace` volume.
 
-#### Model Support
-- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
-- **[GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md)** models
-- **[Safetensors](https://github.com/huggingface/safetensors)** models
+You must create a `config.yml` file at the root of your `/workspace` volume.
 
-- ## 🔒 Network Configuration (Tailscale ACLs)
+**1. Connect to Your Volume:**
+Open a terminal to your RunPod volume (or use `docker exec -it <container_name> /bin/bash` if running locally).
 
-To allow your devices to securely connect to the container, you must configure your Tailscale network's Access Control Lists (ACLs). This project includes a recommended sample file to make this easy.
+**2. Copy the Sample Configuration:**
+The container includes a sample config file, [`config_sample.yml`](./config_sample.yml). Run this command to copy it to the correct location on your persistent volume:
 
-**One-Time Setup:**
+```bash
+cp /opt/tabbyapi-src/config_sample.yml /workspace/config.yml
+```
 
-1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
+**3. Edit Your New `config.yml`:**
+Open the file you just created and set the `model_name` to match the directory of the model you have downloaded.
 
-2.  **Edit the File:** Open the file and find the `tagOwners` section. Replace `"autogroup:admin"` with your own Tailscale login email if you prefer, for example: `["your-email@example.com"]`.
+```bash
+# Open the file for editing
+nano /workspace/config.yml
+```
 
-3.  **Apply the ACLs:**
-    *   Navigate to your [**Tailscale ACL settings page**](https://login.tailscale.com/admin/acls).
-    *   Delete the entire contents of the policy editor.
-    *   Copy the entire contents of your edited `tailscale-acl.json.sample` file and paste it into the editor.
-    *   Click "Save".
+**Example:**
+```yaml
+model:
+  model_dir: /workspace/models
+  # Change this to your model's folder name
+  model_name: L3.3-YOUR-MODEL-HERE 
+```
 
-Your network is now configured. This only needs to be done once.
+**4. Restart the Pod:**
+Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed for the config file if you are on a platform like RunPod that mounts the entire `/workspace`.
 
-#### API Access
+#### Why This Approach?
+This method separates **configuration** (your settings) from the immutable **container**. To swap models, you can now edit your `/workspace/config.yml` (created from [`config_sample.yml`](./config_sample.yml)) and restart your session/pod without ever needing to rebuild the container image.
 
-Once running, the container provides:
-- **Local Access**: `http://localhost:80`
-- **Mesh Network Access**: `http:/<containters-tailscaleIP:80/v1>` (via [Tailscale](https://tailscale.com/))
-- **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
+---
 
 ## 🔧 Advanced Configuration
 
@@ -539,50 +658,64 @@ Once running, the container provides:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TAILSCALE_AUTHKEY` | [Tailscale](https://tailscale.com/) authentication key | Required |
-| `DEBUG_KEY` | Debug mode activation key | Disabled |
 
-### Custom Configuration
+### Local Docker Configuration Example
 
-Mount your own config files:
+For local Docker runs (not on RunPod), you must map your host files and directories into the container's `/workspace`. The container's internal logic remains the same.
 
 ```bash
+# Create the necessary files and directories on your local machine first.
+# You will need a config.yml and api_tokens.yml. You can create these
+# from their respective samples: config_sample.yml and api_tokens.yml.sample
+mkdir -p ./models
+touch ./config.yml
+touch ./api_tokens.yml
+
+# Run the container, mapping all necessary files
 docker run -d \
-  --name tabbyapi-Somner \
+  --name tabbyapi-somner-dev \
   --gpus all \
-  -v "$(pwd)/models":/workspace/model \
-  -v ./config.yml:/opt/tabbyapi-src/config.yml \
-  -v ./api_tokens.yml:/opt/tabbyapi-src/api_tokens.yml \
+  -v "$(pwd)/models":/workspace/models \
+  -v "$(pwd)/config.yml":/workspace/config.yml \
+  -v "$(pwd)/api_tokens.yml":/workspace/api_tokens.yml \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
-  yourusername/tabbyapi-Somner:latest
+  yourusername/somner:dev1
 ```
+*Note: We are mapping to `/workspace/config.yml`, not `/opt/tabbyapi-src/config.yml`.*
 
-### Model Configuration
-
-Edit `config.yml` to customize:
+### Model Customization
+To customize model behavior, edit your persistent [`/workspace/config.yml`](./config_sample.yml) file. You can change:
 - Maximum sequence length
-- Cache settings
-- GPU memory allocation
+- Cache settings (`cache_mode`)
+- GPU memory allocation (`gpu_split_auto`)
 - Sampling parameters
 
-## 🌐 Deployment Scenarios
+---
 
-### Local Development
-```bash
-docker run --gpus all -p 80:80 -v ./models:/workspace/model tabbyapi-Somner
-```
+## 🔒 Network Configuration
 
-### Remote/Cloud Deployment
-```bash
-docker run --gpus all -e TAILSCALE_AUTHKEY=your-key -v ./models:/workspace/model tabbyapi-Somner
-```
+### Tailscale ACLs
 
-### Air-Gapped Environment
-The container includes all dependencies and requires no internet access after deployment.
+To allow your devices to securely connect to the container, you must configure your Tailscale network's Access Control Lists (ACLs). This project includes a recommended sample file to make this easy.
+
+**One-Time Setup:**
+
+1.  **Find the Sample File:** In this repository, locate the file named [`tailscale-acl.json.sample`](./tailscale-acl.json.sample).
+2.  **Edit and Apply:** Follow the instructions in the sample file to apply the ACLs to your Tailscale admin console. This only needs to be done once.
+
+### API Access
+
+Once running, the container provides:
+- **Local Access**: `http://localhost:80`
+- **Mesh Network Access**: `http://<containers-tailscale-ip>:80/v1` (via [Tailscale](https://tailscale.com/))
+- **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
+
+---
 
 ## 📊 Performance Features
 
 - **[ExllamaV3](https://github.com/turboderp-org/exllamav3) Backend** - Optimized inference performance
-- **[Flash Attention 2.8](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention computation
+- **[Flash Attention](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention computation
 - **Automatic GPU Splitting** - Multi-GPU support with automatic memory allocation
 - **FP16 Caching** - Reduced memory footprint with maintained precision
 - **Tensor Parallelism** - Distributed computation across multiple GPUs
@@ -597,10 +730,13 @@ The container includes all dependencies and requires no internet access after de
 
 ## 📋 System Requirements
 
-- **GPU**: [NVIDIA](https://www.nvidia.com/) GPU with [CUDA 12.8](https://developer.nvidia.com/cuda-downloads) support
-- **Memory**: 8GB+ system RAM, 4GB+ VRAM (varies by model)
-- **Storage**: 10GB+ for container, additional space for models
-- **Network**: [Tailscale](https://tailscale.com/) account for mesh networking
+- **GPU**: NVIDIA GPU with **Ampere architecture or newer** is required.
+  - **Supported Architectures**: Ampere, Hopper (e.g., RTX 30-series, RTX 40-series, A100, H100).
+  - **Unsupported Architectures**: Turing, Volta, Pascal (e.g., RTX 20-series, Titan V, Tesla T4, V100, P100).
+  - **AI-NOTE**: This is a key difference from the `main` branch. The `main` branch uses ExllamaV2, which can fall back to using `xformers` for compatibility with pre-Ampere GPUs. ExllamaV3 (used in this branch) drops this backward compatibility in favor of performance on modern hardware and therefore does not support pre-Ampere GPUs.
+- **Memory**: 8GB+ system RAM, 16GB+ VRAM recommended for 70B models.
+- **Storage**: 10GB+ for container, plus additional space for models.
+- **Network**: [Tailscale](https://tailscale.com/) account for optional mesh networking.
 
 ## 🔍 Health Monitoring
 
@@ -727,8 +863,23 @@ tailscale --socket="${TS_SOCKET_DIR}/tailscaled.sock" up \
 # installable Python package, so `python -m tabbyapi.main` will not work.
 echo "[INFO] Starting TabbyAPI server..." >&2
 
+# RATIONALE: Define the path to the user's persistent config file.
+# This decouples the container from its configuration.
+CONFIG_PATH="/workspace/config.yml"
+
+# RATIONALE: Add a pre-flight check to ensure the config file exists.
+# If it doesn't, fail fast with a clear, actionable error message.
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "[FATAL] Configuration file not found at '$CONFIG_PATH'."
+    echo "[INFO]  Please follow the 'First-Time Configuration' steps in the README."
+    echo "[INFO]  You must create a config.yml on your /workspace volume."
+    exit 1
+fi
+
+echo "[INFO] Using configuration from persistent volume: $CONFIG_PATH"
+
 # Explicitly change to the source directory to ensure the script's working
-# directory is correct, allowing it to find its modules and config files.
+# directory is correct, allowing it to find its modules.
 cd /opt/tabbyapi-src
 
 # --- Pre-Launch Sanity Check ---
@@ -740,8 +891,8 @@ ls -la
 echo "[SANITY CHECK] PATH variable is: $PATH"
 echo "--- End Sanity Check ---"
 
-# Launch the server in the background.
-python3.11 main.py --config config.yml &
+# Launch the server, pointing it explicitly to the config file on the volume.
+python3.11 main.py --config "$CONFIG_PATH" &
 TABBY_PID=$!
 
 # 4. Health Check Loop
