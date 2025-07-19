@@ -47,7 +47,7 @@ model:
 
   # PARAMETER: model_name
   # The name of the specific model folder to load, located within `model_dir`.
-  model_name: L3.3-70B-Magnum-Diamond
+  model_name: REPLACE_ME
 
   # PARAMETER: max_seq_len
   # The maximum sequence length (context window) the model will support.

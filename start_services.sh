@@ -98,8 +98,23 @@ tailscale --socket="${TS_SOCKET_DIR}/tailscaled.sock" up \
 # installable Python package, so `python -m tabbyapi.main` will not work.
 echo "[INFO] Starting TabbyAPI server..." >&2
 
+# RATIONALE: Define the path to the user's persistent config file.
+# This decouples the container from its configuration.
+CONFIG_PATH="/workspace/config.yml"
+
+# RATIONALE: Add a pre-flight check to ensure the config file exists.
+# If it doesn't, fail fast with a clear, actionable error message.
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "[FATAL] Configuration file not found at '$CONFIG_PATH'."
+    echo "[INFO]  Please follow the 'First-Time Configuration' steps in the README."
+    echo "[INFO]  You must create a config.yml on your /workspace volume."
+    exit 1
+fi
+
+echo "[INFO] Using configuration from persistent volume: $CONFIG_PATH"
+
 # Explicitly change to the source directory to ensure the script's working
-# directory is correct, allowing it to find its modules and config files.
+# directory is correct, allowing it to find its modules.
 cd /opt/tabbyapi-src
 
 # --- Pre-Launch Sanity Check ---
@@ -111,8 +126,8 @@ ls -la
 echo "[SANITY CHECK] PATH variable is: $PATH"
 echo "--- End Sanity Check ---"
 
-# Launch the server in the background.
-python3.11 main.py --config config.yml &
+# Launch the server, pointing it explicitly to the config file on the volume.
+python3.11 main.py --config "$CONFIG_PATH" &
 TABBY_PID=$!
 
 # 4. Health Check Loop

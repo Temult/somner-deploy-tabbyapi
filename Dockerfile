@@ -30,7 +30,6 @@ ARG PYTHON_VERSION="3.11"
 ARG TORCH_VERSION="2.7.1+cu128"
 ARG TORCHVISION_VERSION="0.22.1+cu128"
 ARG TORCHAUDIO_VERSION="2.7.1+cu128"
-ARG FLASH_VERSION="2.8.0.post2"
 
 # Start from the NVIDIA CUDA development image, which includes the full CUDA toolkit.
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
@@ -39,7 +38,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
 ARG TORCH_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHAUDIO_VERSION
-ARG FLASH_VERSION
+ARG XFORMERS_VERSION
 
 # Set environment variables for non-interactive setup and CUDA architecture.
 ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
@@ -68,6 +67,10 @@ WORKDIR /workspace
 RUN git clone --depth 1 --branch main https://github.com/theroyallab/TabbyAPI.git
 WORKDIR /workspace/TabbyAPI
 RUN set -eux; \
+    # OPTIMIZATION: Remove the hidden .git directory after cloning. This directory
+    # contains git metadata that is unnecessary for the runtime container and
+    # can add several megabytes of bloat to the final image.
+    rm -rf .git && \
     # RATIONALE: Patch the source to use exllamav3 instead of the default exllamav2.
     sed -i 's/from backends.exllamav2.model import ExllamaV2Container/from backends.exllamav3.model import ExllamaV3Container/' common/model.py && \
     sed -i 's/new_container = await ExllamaV2Container.create(/new_container = await ExllamaV3Container.create(/' common/model.py && \
@@ -99,8 +102,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         echo "torch==${TORCH_VERSION}"; \
         echo "torchvision==${TORCHVISION_VERSION}"; \
         echo "torchaudio==${TORCHAUDIO_VERSION}"; \
-        echo "flash-attn==${FLASH_VERSION}"; \
-        echo "exllamav3 @ git+https://github.com/turboderp-org/exllamav3.git"; \
+		# RATIONALE: xformers is NOT included. The primary reason for its inclusion in
+        # the main branch was as a fallback dependency for exllamav2 on pre-Ampere GPUs.
+        # This branch uses exllamav3 (dev), which does not support pre-Ampere GPUs,
+        # making the xformers fallback unnecessary.
+        echo "exllamav3 @ git+https://github.com/turboderp-org/exllamav3.git@dev"; \
         echo "/workspace/TabbyAPI"; \
     } > /tmp/requirements.in && \
     # 3. Pre-install torch to satisfy dependencies for other packages during resolution.
@@ -130,7 +136,12 @@ ARG CADDY_VERSION="2.7.6"
 # Set environment variables.
 ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
 
-# Install minimal OS packages, Python, Tailscale, and create the non-root user.
+# OPTIMIZATION: Consolidate all OS-level setup and cleanup into a single RUN command.
+# RATIONALE: Each RUN command creates a new layer in the Docker image. By combining
+# these steps, we reduce the number of layers. More importantly, by running
+# `rm -rf /var/lib/apt/lists/*` in the *same* layer that `apt-get install` was
+# used, we ensure the apt cache files are truly discarded from the final image,
+# significantly reducing its size.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common iproute2 curl gnupg ca-certificates \
@@ -148,32 +159,38 @@ RUN apt-get update && \
     # Create a non-root user for security.
     groupadd --gid 1000 somneruser && \
     useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home somneruser && \
+    # Clean up apt cache to minimize image size.
     rm -rf /var/lib/apt/lists/*
 
 # Copy build artifacts from the builder stage.
 COPY --from=builder /wheels /wheels
-COPY --from=builder /workspace/TabbyAPI /workspace/TabbyAPI
+# RATIONALE: This copies the application source code to a safe, non-volume location (/opt).
+# This prevents the app code from being hidden by a volume mounted at /workspace on RunPod.
+# OPTIMIZATION: The source of this copy is smaller because the .git directory was removed in the builder stage.
+COPY --from=builder /workspace/TabbyAPI /opt/tabbyapi-src
 
-# Install the application and its dependencies correctly.
+# OPTIMIZATION: Consolidate all Python package installation and cleanup into a single RUN command.
+# RATIONALE: Similar to the apt-get optimization, this creates a single layer. We install all
+# Python packages from the `/wheels` directory and then delete that directory in the same command.
+# This ensures the large wheel files (~10-15GB) are not part of the final image.
 RUN \
     set -eux; \
-    # STEP 1: Move the application source code to a safe, non-volume location (/opt).
-    # RATIONALE: This prevents the app code from being hidden by a volume mounted at /workspace on RunPod.
-    mv /workspace/TabbyAPI /opt/tabbyapi-src && \
+    # STEP 1: Install all heavyweight dependencies from the pre-built wheels.
+    # The --no-cache-dir flag prevents pip from storing a cache, and --no-index
+    # ensures it only uses the local /wheels directory.
+    python3.11 -m pip install --no-cache-dir --no-index --find-links=/wheels \
+        torch torchvision torchaudio exllamav3 && \
     \
-    # STEP 2: Install all heavyweight dependencies from the pre-built wheels.
-    python3.11 -m pip install --no-index --find-links=/wheels \
-        torch torchvision torchaudio flash-attn exllamav3 && \
-    \
-    # STEP 3: Install TabbyAPI itself from its new source directory in /opt.
+    # STEP 2: Install TabbyAPI itself from its source directory in /opt.
     python3.11 -m pip install --no-cache-dir /opt/tabbyapi-src[cu128] && \
     \
-    # STEP 4: Grant ownership of the app directory to the runtime user for logs/etc.
+    # STEP 3: Grant ownership of the app directory to the runtime user for logs/etc.
     chown -R somneruser:somneruser /opt/tabbyapi-src && \
     \
-    # STEP 5: Clean up the wheelhouse to keep the final image small.
-    rm -rf /wheels
-
+    # STEP 4: Clean up the wheelhouse and any pycache files to keep the final image small.
+    rm -rf /wheels && \
+    find /usr/local/lib/python3.11/ -name "__pycache__" -type d -exec rm -rf {} +
+	
 # Configure the application environment by copying in config files.
 # The WORKDIR is set first to ensure the files are copied to the correct location.
 WORKDIR /opt/tabbyapi-src

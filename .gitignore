@@ -1,6 +1,12 @@
 # Ignore the actual tokens file. Users should create this from the sample.
 api_tokens.yml
 
+# Ignore the user-specific build script. The .sample file is tracked instead.
+build.sh
+
+# Ignore the user-specific configuration file. The .sample file is tracked instead.
+config.yml
+
 # Ignore common Python cache files
 __pycache__/
 *.pyc

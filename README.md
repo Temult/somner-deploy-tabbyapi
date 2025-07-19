@@ -1,6 +1,10 @@
-⚠️ **Project Status: Prototype/Pre-Alpha**
-
-This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
+> **⚠️ WARNING: You are on the `dev/experimental-backend` development branch.**
+>
+> This branch contains experimental changes and may be unstable. It uses the development branch of **ExllamaV3**, which has different hardware requirements than the stable `main` branch.
+>
+> **CRITICAL: ExllamaV3 requires an NVIDIA GPU with Ampere architecture or newer (e.g., RTX 30xx, RTX 40xx, A4000+, A100). Pre-Ampere GPUs (e.g., Turing, Volta, Tesla T4, RTX 20xx) are NOT supported on this branch.**
+>
+> For stable, broader hardware support, please use the `main` branch.
 
 ===========================================
 
@@ -10,14 +14,13 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 
 ## 🚀 Modern Technology Stack
 
-- **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
+- **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3 (dev branch)](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
 - **[CUDA 12.8.0](https://developer.nvidia.com/cuda-downloads)** - Latest [NVIDIA](https://www.nvidia.com/) driver compatibility with optimized binaries
 - **[PyTorch 2.7.1+cu128](https://pytorch.org/)** - Current [PyTorch](https://pytorch.org/) ecosystem with CUDA 12.8 acceleration
-- **[Flash Attention 2.8.0](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism for larger context windows
+- **[Flash Attention](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism (included as a dependency of ExllamaV3)
 - **[Python 3.11](https://www.python.org/)** - Modern Python runtime with performance improvements
 - **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy with automatic reloading
 - **[Tailscale](https://tailscale.com/)** - Built-in mesh networking for secure remote access
-- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** - Latest generation inference backend
 
 ## 🔒 Privacy-First Security Design
 
@@ -31,46 +34,77 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 
 ### Prerequisites
 
-1. **Install [Tailscale](https://tailscale.com/)** on your client device:
-   ```bash
-   # macOS
-   brew install tailscale
-   
-   # Ubuntu/Debian
-   curl -fsSL https://tailscale.com/install.sh | sh
-   
-   # Windows: Download from https://tailscale.com/download
-   ```
+1.  **Install [Tailscale](https://tailscale.com/)** on your client device.
+2.  **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
-2. **Get your Tailscale auth key** from [https://login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys)
-
-### Deploy with [Docker](https://www.docker.com/)
+### Deploy with Docker
 
 ```bash
-# Pull the image
-docker pull yourusername/tabbyapi-Somner:latest
+# Pull the development image
+# Replace 'yourusername/somner:dev1' with the correct image name if you built it yourself
+docker pull yourusername/somner:dev1
 
-# Create model directory
+# On your host machine, create a directory for your models
 mkdir -p ./models
 
-# Run the container
+# Run the container (see First-Time Configuration below before running)
 docker run -d \
-  --name tabbyapi-Somner \
+  --name tabbyapi-somner-dev \
   --gpus all \
-  -v ./models:/workspace/model \
+  -v ./models:/workspace/models \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
   -p 80:80 \
-  yourusername/tabbyapi-Somner:latest
+  yourusername/somner:dev1
 ```
 
-### Configuration
+---
 
-Place your model files in the `./models` directory. The container will automatically detect and load compatible models.
+## ⚙️ First-Time Configuration: Setting Your Model
 
-#### Model Support
-- **[ExllamaV3](https://github.com/turboderp-org/exllamav3)** quantized models (recommended)
-- **[GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md)** models
-- **[Safetensors](https://github.com/huggingface/safetensors)** models
+When you first launch the container, it will likely fail to start with a "model not found" error in the logs. **This is expected.** The container is immutable and doesn't know which model you want to use from your persistent volume.
+
+You must create a `config.yml` file on your persistent `/workspace` volume to tell the server which model to load.
+
+**1. Connect to Your Volume:**
+Open a terminal to your RunPod volume (or use `docker exec -it <container_name> /bin/bash` if running locally).
+
+**2. Copy the Sample Configuration:**
+The container includes a sample config. Run this command to copy it to your persistent volume where you can safely edit it:
+
+```bash
+cp /opt/tabbyapi-src/config_sample.yml /workspace/config.yml
+```
+
+**3. Edit Your New `config.yml`:**
+Open the file you just created and set the `model_name` to match the directory of the model you have downloaded.
+
+```bash
+# Open the file for editing
+nano /workspace/config.yml
+```
+
+**Example:**
+```yaml
+model:
+  model_dir: /workspace/models
+  # Change this to your model's folder name
+  model_name: L3.3-70B-Magnum-Diamond 
+```
+
+**4. Mount Your Configuration (Important!):**
+In your RunPod template (or your `docker run` command), you must map your new config file into the container. This overrides the default config.
+
+Add this volume mount:
+*   **Host Path:** `/workspace/config.yml`
+*   **Container Path:** `/opt/tabbyapi-src/config.yml`
+
+**5. Restart the Pod:**
+Save your changes and restart the pod. It will now find your configuration and load the correct model.
+
+#### Why This Approach?
+This method follows the best practice of separating **configuration** (your settings) from the **container** (the application). Your `config.yml` on the persistent volume is your "single source of truth." You can now change models anytime by just editing this file and restarting the pod, without ever needing to rebuild the container image.
+
+---
 
 - ## 🔒 Network Configuration (Tailscale ACLs)
 
@@ -79,22 +113,13 @@ To allow your devices to securely connect to the container, you must configure y
 **One-Time Setup:**
 
 1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
-
-2.  **Edit the File:** Open the file and find the `tagOwners` section. Replace `"autogroup:admin"` with your own Tailscale login email if you prefer, for example: `["your-email@example.com"]`.
-
-3.  **Apply the ACLs:**
-    *   Navigate to your [**Tailscale ACL settings page**](https://login.tailscale.com/admin/acls).
-    *   Delete the entire contents of the policy editor.
-    *   Copy the entire contents of your edited `tailscale-acl.json.sample` file and paste it into the editor.
-    *   Click "Save".
-
-Your network is now configured. This only needs to be done once.
+2.  **Edit and Apply:** Follow the instructions in the sample file to apply the ACLs to your Tailscale admin console. This only needs to be done once.
 
 #### API Access
 
 Once running, the container provides:
 - **Local Access**: `http://localhost:80`
-- **Mesh Network Access**: `http:/<containters-tailscaleIP:80/v1>` (via [Tailscale](https://tailscale.com/))
+- **Mesh Network Access**: `http://<containers-tailscale-ip>:80/v1` (via [Tailscale](https://tailscale.com/))
 - **[OpenAI-Compatible API](https://platform.openai.com/docs/api-reference)**: Drop-in replacement for [OpenAI API](https://platform.openai.com/docs/api-reference) endpoints
 
 ## 🔧 Advanced Configuration
@@ -104,41 +129,39 @@ Once running, the container provides:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TAILSCALE_AUTHKEY` | [Tailscale](https://tailscale.com/) authentication key | Required |
-| `DEBUG_KEY` | Debug mode activation key | Disabled |
 
-### Custom Configuration
+### Custom Configuration Example
 
-Mount your own config files:
+This `docker run` command shows how to mount your models, your new persistent `config.yml`, and your `api_tokens.yml`.
 
 ```bash
 docker run -d \
-  --name tabbyapi-Somner \
+  --name tabbyapi-somner-dev \
   --gpus all \
-  -v "$(pwd)/models":/workspace/model \
-  -v ./config.yml:/opt/tabbyapi-src/config.yml \
-  -v ./api_tokens.yml:/opt/tabbyapi-src/api_tokens.yml \
+  -v "$(pwd)/models":/workspace/models \
+  -v "$(pwd)/config.yml":/opt/tabbyapi-src/config.yml \
+  -v "$(pwd)/api_tokens.yml":/opt/tabbyapi-src/api_tokens.yml \
   -e TAILSCALE_AUTHKEY=your-auth-key-here \
-  yourusername/tabbyapi-Somner:latest
+  yourusername/somner:dev1
 ```
 
 ### Model Configuration
-
-Edit `config.yml` to customize:
+Edit your persistent `/workspace/config.yml` file to customize:
 - Maximum sequence length
-- Cache settings
-- GPU memory allocation
+- Cache settings (`cache_mode`)
+- GPU memory allocation (`gpu_split_auto`)
 - Sampling parameters
 
 ## 🌐 Deployment Scenarios
 
 ### Local Development
 ```bash
-docker run --gpus all -p 80:80 -v ./models:/workspace/model tabbyapi-Somner
+docker run --gpus all -p 80:80 -v ./models:/workspace/models -v ./config.yml:/opt/tabbyapi-src/config.yml yourusername/somner:dev1
 ```
 
 ### Remote/Cloud Deployment
 ```bash
-docker run --gpus all -e TAILSCALE_AUTHKEY=your-key -v ./models:/workspace/model tabbyapi-Somner
+docker run --gpus all -e TAILSCALE_AUTHKEY=your-key -v /path/to/models:/workspace/models -v /path/to/config.yml:/opt/tabbyapi-src/config.yml yourusername/somner:dev1
 ```
 
 ### Air-Gapped Environment
@@ -147,7 +170,7 @@ The container includes all dependencies and requires no internet access after de
 ## 📊 Performance Features
 
 - **[ExllamaV3](https://github.com/turboderp-org/exllamav3) Backend** - Optimized inference performance
-- **[Flash Attention 2.8](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention computation
+- **[Flash Attention](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention computation
 - **Automatic GPU Splitting** - Multi-GPU support with automatic memory allocation
 - **FP16 Caching** - Reduced memory footprint with maintained precision
 - **Tensor Parallelism** - Distributed computation across multiple GPUs
@@ -162,10 +185,13 @@ The container includes all dependencies and requires no internet access after de
 
 ## 📋 System Requirements
 
-- **GPU**: [NVIDIA](https://www.nvidia.com/) GPU with [CUDA 12.8](https://developer.nvidia.com/cuda-downloads) support
-- **Memory**: 8GB+ system RAM, 4GB+ VRAM (varies by model)
-- **Storage**: 10GB+ for container, additional space for models
-- **Network**: [Tailscale](https://tailscale.com/) account for mesh networking
+- **GPU**: NVIDIA GPU with **Ampere architecture or newer** is required.
+  - **Supported Architectures**: Ampere, Hopper (e.g., RTX 30-series, RTX 40-series, A100, H100).
+  - **Unsupported Architectures**: Turing, Volta, Pascal (e.g., RTX 20-series, Titan V, Tesla T4, V100, P100).
+  - **AI-NOTE**: This is a key difference from the `main` branch. The `main` branch uses ExllamaV2, which can fall back to using `xformers` for compatibility with pre-Ampere GPUs. ExllamaV3 (used in this branch) drops this backward compatibility in favor of performance on modern hardware and therefore does not support pre-Ampere GPUs.
+- **Memory**: 8GB+ system RAM, 16GB+ VRAM recommended for 70B models.
+- **Storage**: 10GB+ for container, plus additional space for models.
+- **Network**: [Tailscale](https://tailscale.com/) account for optional mesh networking.
 
 ## 🔍 Health Monitoring
 

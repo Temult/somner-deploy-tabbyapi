@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Docker Build Script for Somner-Deploy-TabbyAPI (Sample)
+# ==============================================================================
+#
+# SUMMARY:
+# This script provides a reproducible and easy-to-use method for building the
+# project's Docker container. It encapsulates all necessary build arguments,
+# making the build process consistent, transparent, and less error-prone.
+#
+# USAGE:
+# 1. Copy this file to `build.sh`: cp build.sh.sample build.sh
+# 2. Edit `build.sh` to set your Docker Hub username.
+# 3. Make the script executable: `chmod +x build.sh`
+# 4. Run it from the repository root: `./build.sh`
+#
+# AI-NOTE: For Windows users, `chmod` is not required. Use a bash-compatible
+# terminal (like Git Bash) and run the script with: `bash build.sh`
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Script Configuration and Safety
+# ------------------------------------------------------------------------------
+# RATIONALE: `set -e` ensures that the script will exit immediately if any
+# command fails. This prevents the script from continuing on an error, for
+# example, if Docker is not running or a build argument is misspelled.
+set -e
+
+# ==============================================================================
+# SECTION: Configuration
+# PURPOSE: Define all variables used in the build process. This centralizes
+#          configuration, making it easy to update dependency versions or
+#          retag the image without searching through command-line flags.
+# ==============================================================================
+
+# --- Docker Image Identification ---
+# RATIONALE: Defines the Docker Hub username, the name of the image, and the tag.
+# Modifying these allows you to build the image for a different repository or version.
+#
+# ACTION REQUIRED: Replace "yourusername" with your actual Docker Hub username.
+DOCKER_USERNAME="yourusername"
+IMAGE_NAME="somner"
+TAG="dev1"
+
+# --- Build Argument Versions ---
+# AI-NOTE: These variables correspond directly to the `ARG` instructions defined
+# in the Dockerfile. Changing a version here will inject it into the build process
+# without requiring any modifications to the Dockerfile's logic.
+CUDA_VERSION="12.8.0"
+PYTHON_VERSION="3.11"
+TORCH_VERSION="2.7.1+cu128"
+TORCHVISION_VERSION="0.22.1+cu128"
+TORCHAUDIO_VERSION="2.7.1+cu128"
+CADDY_VERSION="2.7.6"
+
+# ==============================================================================
+# SECTION: Build Execution
+# PURPOSE: Orchestrates the container build using the configuration defined above.
+# ==============================================================================
+
+echo "[INFO] Starting Docker build for image: ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
+echo "[INFO] Using Dockerfile: Dockerfile"
+
+# RATIONALE: We explicitly pass every version as a `--build-arg`. This makes the
+# build process transparent and highly reproducible. The Dockerfile is treated as
+# a template, and this script provides the concrete values, ensuring that anyone
+# running this script will produce an identical environment.
+docker build \
+  --tag "${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}" \
+  --build-arg CUDA_VERSION="${CUDA_VERSION}" \
+  --build-arg PYTHON_VERSION="${PYTHON_VERSION}" \
+  --build-arg TORCH_VERSION="${TORCH_VERSION}" \
+  --build-arg TORCHVISION_VERSION="${TORCHVISION_VERSION}" \
+  --build-arg TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION}" \
+  --build-arg CADDY_VERSION="${CADDY_VERSION}" \
+  -f Dockerfile .
+
+# --- Final Output ---
+echo ""
+echo "[SUCCESS] Build complete."
+echo "Image ready: ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
+echo "To push this image to Docker Hub, run: docker push ${DOCKER_USERNAME}/${IMAGE_NAME}:${TAG}"
