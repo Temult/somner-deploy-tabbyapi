@@ -1,3 +1,5 @@
+Note: The [dev branch](https://github.com/Temult/somner-deploy-tabbyapi/tree/dev) is quite stable and recommended for ampere and newer GPUs.
+
 ⚠️ **Project Status: Prototype/Pre-Alpha**
 
 This is an experimental prototype in pre-alpha development. Somner-deploy-tabbyapi is a proof-of-concept implementation exploring secure, air-gapped LLM deployment patterns. While functional, it should be considered unstable and subject to significant changes. Do NOT consider it fully secure at this time.
