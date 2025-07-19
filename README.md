@@ -95,7 +95,7 @@ model:
 Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed.
 
 #### Why This Approach?
-This method follows the best practice of separating **configuration** (your settings) from the **container** (the application). Your `config.yml` at `/workspace/config.yml` is your "single source of truth." You can now change models anytime by just editing this file and restarting the pod, without ever needing to rebuild the container image.
+This method separates **configuration** (your settings) from the immutable **container**. To swap models, you can now edit your `config.yml` at `/workspace/config.yml` and restart your session/pod without ever needing to rebuild the container image.
 
 ---
 
