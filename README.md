@@ -12,6 +12,8 @@
 
 A production-ready containerized deployment of [TabbyAPI](https://github.com/theroyallab/TabbyAPI) optimized for secure, remote local or air-gapped environments with [ExllamaV3](https://github.com/turboderp-org/exllamav3) acceleration and mesh networking capabilities.
 
+This project is defined by its main [Dockerfile](./Dockerfile) and started by the [start_services.sh](./start_services.sh) script.
+
 ## 🚀 Modern Technology Stack
 
 - **[TabbyAPI](https://github.com/theroyallab/TabbyAPI)** - Enhanced with [ExllamaV3 (dev branch)](https://github.com/turboderp-org/exllamav3) inference backend for optimal throughput
@@ -19,7 +21,7 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 - **[PyTorch 2.7.1+cu128](https://pytorch.org/)** - Current [PyTorch](https://pytorch.org/) ecosystem with CUDA 12.8 acceleration
 - **[Flash Attention](https://github.com/Dao-AILab/flash-attention)** - Memory-efficient attention mechanism (included as a dependency of ExllamaV3)
 - **[Python 3.11](https://www.python.org/)** - Modern Python runtime with performance improvements
-- **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy with automatic reloading
+- **[Caddy 2.7.6](https://caddyserver.com/)** - Zero-config HTTPS reverse proxy using this [Caddyfile](./Caddyfile).
 - **[Tailscale](https://tailscale.com/)** - Built-in mesh networking for secure remote access
 
 ## 🔒 Privacy-First Security Design
@@ -41,9 +43,11 @@ A production-ready containerized deployment of [TabbyAPI](https://github.com/the
 
 ### Step 2: Deploy with Docker
 
+You can build the image yourself using the provided [`build.sh.sample`](./build.sh.sample) script, or pull a pre-built image.
+
 ```bash
 # Pull the development image
-# Replace 'yourusername/somner:dev1' with the correct image name if you built it yourself
+# Replace 'yourusername/somner:dev1' with your own image if you built it yourself
 docker pull yourusername/somner:dev1
 
 # On your host machine, create a directory for your models
@@ -69,7 +73,7 @@ You must create a `config.yml` file at the root of your `/workspace` volume.
 Open a terminal to your RunPod volume (or use `docker exec -it <container_name> /bin/bash` if running locally).
 
 **2. Copy the Sample Configuration:**
-The container includes a sample config. Run this command to copy it to the correct location on your persistent volume:
+The container includes a sample config file, [`config_sample.yml`](./config_sample.yml). Run this command to copy it to the correct location on your persistent volume:
 
 ```bash
 cp /opt/tabbyapi-src/config_sample.yml /workspace/config.yml
@@ -95,7 +99,7 @@ model:
 Save your changes and restart the pod. The startup script will now automatically find and use `/workspace/config.yml`. No extra volume mounts are needed for the config file if you are on a platform like RunPod that mounts the entire `/workspace`.
 
 #### Why This Approach?
-This method separates **configuration** (your settings) from the immutable **container**. To swap models, you can now edit your `config.yml` at `/workspace/config.yml` and restart your session/pod without ever needing to rebuild the container image.
+This method separates **configuration** (your settings) from the immutable **container**. To swap models, you can now edit your `/workspace/config.yml` (created from [`config_sample.yml`](./config_sample.yml)) and restart your session/pod without ever needing to rebuild the container image.
 
 ---
 
@@ -112,7 +116,9 @@ This method separates **configuration** (your settings) from the immutable **con
 For local Docker runs (not on RunPod), you must map your host files and directories into the container's `/workspace`. The container's internal logic remains the same.
 
 ```bash
-# Create the necessary files and directories on your local machine first
+# Create the necessary files and directories on your local machine first.
+# You will need a config.yml and api_tokens.yml. You can create these
+# from their respective samples: config_sample.yml and api_tokens.yml.sample
 mkdir -p ./models
 touch ./config.yml
 touch ./api_tokens.yml
@@ -130,7 +136,7 @@ docker run -d \
 *Note: We are mapping to `/workspace/config.yml`, not `/opt/tabbyapi-src/config.yml`.*
 
 ### Model Customization
-To customize model behavior, edit your persistent `/workspace/config.yml` file. You can change:
+To customize model behavior, edit your persistent [`/workspace/config.yml`](./config_sample.yml) file. You can change:
 - Maximum sequence length
 - Cache settings (`cache_mode`)
 - GPU memory allocation (`gpu_split_auto`)
@@ -146,7 +152,7 @@ To allow your devices to securely connect to the container, you must configure y
 
 **One-Time Setup:**
 
-1.  **Find the Sample File:** In this repository, locate the file named `tailscale-acl.json.sample`.
+1.  **Find the Sample File:** In this repository, locate the file named [`tailscale-acl.json.sample`](./tailscale-acl.json.sample).
 2.  **Edit and Apply:** Follow the instructions in the sample file to apply the ACLs to your Tailscale admin console. This only needs to be done once.
 
 ### API Access
