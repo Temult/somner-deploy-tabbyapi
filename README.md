@@ -88,7 +88,7 @@ nano /workspace/config.yml
 model:
   model_dir: /workspace/models
   # Change this to your model's folder name
-  model_name: L3.3-70B-Magnum-Diamond 
+  model_name: L3.3-70B-Sample-Model-Name 
 ```
 
 **4. Mount Your Configuration (Important!):**
