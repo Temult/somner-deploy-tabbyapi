@@ -186,7 +186,7 @@ Once running, the container provides:
   - **Supported Architectures**: Ampere, Hopper (e.g., RTX 30-series, RTX 40-series, A100, H100).
   - **Unsupported Architectures**: Turing, Volta, Pascal (e.g., RTX 20-series, Titan V, Tesla T4, V100, P100).
   - **AI-NOTE**: This is a key difference from the `main` branch. The `main` branch uses ExllamaV2, which can fall back to using `xformers` for compatibility with pre-Ampere GPUs. ExllamaV3 (used in this branch) drops this backward compatibility in favor of performance on modern hardware and therefore does not support pre-Ampere GPUs.
-- **Memory**: System is flexible, but I tuned for an A40 w/ 48GB VRAM recommended for 70B models (3 batch/~25 total tps).
+- **Memory**: System is flexible, but tuned with an A40 (48GB VRAM) for 3 batch/~25 total tps on 70B models.
 - **Storage**: 10GB+ for container, plus additional space for models.
 - **Network**: [Tailscale](https://tailscale.com/) account for optional mesh networking.
 
